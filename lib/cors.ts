@@ -1,0 +1,50 @@
+const DEFAULT_ORIGIN = "http://localhost:5173";
+
+function parseAllowedOrigins(): string[] {
+  const raw = process.env.ALLOWED_ORIGIN ?? DEFAULT_ORIGIN;
+  return raw
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+const allowedOrigins = parseAllowedOrigins();
+
+function resolveAllowOrigin(requestOrigin: string | null): string {
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+  return allowedOrigins[0] ?? DEFAULT_ORIGIN;
+}
+
+export function corsHeadersFor(request?: Request): Record<string, string> {
+  const requestOrigin = request?.headers.get("Origin") ?? null;
+  return {
+    "Access-Control-Allow-Origin": resolveAllowOrigin(requestOrigin),
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    Vary: "Origin",
+  };
+}
+
+/** @deprecated Prefer corsHeadersFor(request) when Origin matters */
+export const corsHeaders = corsHeadersFor();
+
+export function withCors(response: Response, request?: Request): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(corsHeadersFor(request))) {
+    headers.set(key, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+export function optionsResponse(request?: Request): Response {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeadersFor(request),
+  });
+}
