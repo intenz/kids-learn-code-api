@@ -26,3 +26,29 @@ model Progress {
 
   @@unique([playerId, gameId, levelId])
 }
+
+/// Lesson module or game content pack (e.g. basics, arrays, expression)
+model ContentModule {
+  id          String         @id
+  kind        String
+  gameId      String         @unique
+  title       String
+  description String         @default("")
+  sortOrder   Int            @default(0)
+  levels      ContentLevel[]
+}
+
+model ContentLevel {
+  id              String        @id
+  moduleId        String
+  module          ContentModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title           String
+  topic           String        @default("")
+  question        String?
+  codeLinesJson   String
+  choicesJson     String
+  correctChoiceId String
+  sortOrder       Int           @default(0)
+
+  @@index([moduleId])
+}

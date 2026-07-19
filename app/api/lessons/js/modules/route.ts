@@ -1,11 +1,11 @@
 import { optionsResponse, withCors } from "@/lib/cors";
-import { getPublicLevels } from "@/lib/expressionGame";
+import { getModules } from "@/lib/jsLessons";
 
 export function OPTIONS(request: Request) {
   return optionsResponse(request);
 }
 
 export async function GET(request: Request) {
-  const levels = await getPublicLevels();
-  return withCors(Response.json({ levels }), request);
+  const modules = await getModules();
+  return withCors(Response.json({ modules }), request);
 }
