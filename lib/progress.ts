@@ -5,118 +5,35 @@ import {
   type JsLessonModuleId,
 } from "@/lib/jsLessons";
 import { prisma } from "@/lib/prisma";
+import {
+  buildGameProgress,
+  type GameProgressResponse,
+  type LevelProgress,
+} from "@/lib/progressHelpers";
+
+export {
+  buildGameProgress,
+  computeProgressStats,
+  isValidPlayerId,
+  mergeLevelProgress,
+  type GameProgressResponse,
+  type LevelProgress,
+} from "@/lib/progressHelpers";
 
 export const EXPRESSION_GAME_ID = "expression";
 export const EXPRESSION_GAME_TITLE = "Збери вираз";
 
 export const LESSON_JS_GAME_ID = "lesson-js";
 
-const UUID_V4_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function isValidPlayerId(value: string | null | undefined): value is string {
-  return typeof value === "string" && UUID_V4_RE.test(value);
-}
-
-export async function recordExpressionEvent(
-  playerId: string,
-  levelId: string,
-  correct: boolean,
-): Promise<void> {
-  await prisma.player.upsert({
-    where: { id: playerId },
-    create: { id: playerId },
-    update: {},
-  });
-
-  const existing = await prisma.progress.findUnique({
-    where: {
-      playerId_gameId_levelId: {
-        playerId,
-        gameId: EXPRESSION_GAME_ID,
-        levelId,
-      },
-    },
-  });
-
-  if (existing) {
-    await prisma.progress.update({
-      where: { id: existing.id },
-      data: correct
-        ? {
-            completed: true,
-            correctCount: { increment: 1 },
-          }
-        : {
-            wrongCount: { increment: 1 },
-          },
-    });
-    return;
-  }
-
-  await prisma.progress.create({
-    data: {
-      playerId,
-      gameId: EXPRESSION_GAME_ID,
-      levelId,
-      completed: correct,
-      correctCount: correct ? 1 : 0,
-      wrongCount: correct ? 0 : 1,
-    },
-  });
-}
-
-export type ExpressionLevelProgress = {
-  levelId: string;
-  title: string;
-  completed: boolean;
-  correctCount: number;
-  wrongCount: number;
-};
-
-export type ExpressionProgressResponse = {
+export type ExpressionLevelProgress = LevelProgress;
+export type ExpressionProgressResponse = GameProgressResponse & {
   gameId: typeof EXPRESSION_GAME_ID;
-  totalLevels: number;
-  completedLevels: number;
-  percent: number;
-  levels: ExpressionLevelProgress[];
 };
+export type LessonJsLevelProgress = LevelProgress;
+export type LessonJsProgressResponse = GameProgressResponse;
 
-export async function getExpressionProgress(
-  playerId: string,
-): Promise<ExpressionProgressResponse> {
-  const knownLevels = await getExpressionPublicLevels();
-  const rows = await prisma.progress.findMany({
-    where: { playerId, gameId: EXPRESSION_GAME_ID },
-  });
-  const byLevelId = new Map(rows.map((row) => [row.levelId, row]));
-
-  const levels: ExpressionLevelProgress[] = knownLevels.map((level) => {
-    const row = byLevelId.get(level.id);
-    return {
-      levelId: level.id,
-      title: level.title,
-      completed: row?.completed ?? false,
-      correctCount: row?.correctCount ?? 0,
-      wrongCount: row?.wrongCount ?? 0,
-    };
-  });
-
-  const totalLevels = knownLevels.length;
-  const completedLevels = levels.filter((level) => level.completed).length;
-  const percent =
-    totalLevels === 0 ? 0 : Math.round((completedLevels / totalLevels) * 100);
-
-  return {
-    gameId: EXPRESSION_GAME_ID,
-    totalLevels,
-    completedLevels,
-    percent,
-    levels,
-  };
-}
-
-export async function recordLessonJsEvent(
+/** Upsert a progress event for any game/level. Shared by expression + lesson routes. */
+export async function recordProgressEvent(
   playerId: string,
   gameId: string,
   levelId: string,
@@ -165,21 +82,37 @@ export async function recordLessonJsEvent(
   });
 }
 
-export type LessonJsLevelProgress = {
-  levelId: string;
-  title: string;
-  completed: boolean;
-  correctCount: number;
-  wrongCount: number;
-};
+export async function recordExpressionEvent(
+  playerId: string,
+  levelId: string,
+  correct: boolean,
+): Promise<void> {
+  await recordProgressEvent(playerId, EXPRESSION_GAME_ID, levelId, correct);
+}
 
-export type LessonJsProgressResponse = {
-  gameId: string;
-  totalLevels: number;
-  completedLevels: number;
-  percent: number;
-  levels: LessonJsLevelProgress[];
-};
+export async function recordLessonJsEvent(
+  playerId: string,
+  gameId: string,
+  levelId: string,
+  correct: boolean,
+): Promise<void> {
+  await recordProgressEvent(playerId, gameId, levelId, correct);
+}
+
+export async function getExpressionProgress(
+  playerId: string,
+): Promise<ExpressionProgressResponse> {
+  const knownLevels = await getExpressionPublicLevels();
+  const rows = await prisma.progress.findMany({
+    where: { playerId, gameId: EXPRESSION_GAME_ID },
+  });
+
+  return buildGameProgress(
+    EXPRESSION_GAME_ID,
+    knownLevels,
+    rows,
+  ) as ExpressionProgressResponse;
+}
 
 export async function getLessonJsProgress(
   playerId: string,
@@ -200,31 +133,8 @@ export async function getLessonJsProgress(
   const rows = await prisma.progress.findMany({
     where: { playerId, gameId: mod.gameId },
   });
-  const byLevelId = new Map(rows.map((row) => [row.levelId, row]));
 
-  const levels: LessonJsLevelProgress[] = knownLevels.map((level) => {
-    const row = byLevelId.get(level.id);
-    return {
-      levelId: level.id,
-      title: level.title,
-      completed: row?.completed ?? false,
-      correctCount: row?.correctCount ?? 0,
-      wrongCount: row?.wrongCount ?? 0,
-    };
-  });
-
-  const totalLevels = knownLevels.length;
-  const completedLevels = levels.filter((level) => level.completed).length;
-  const percent =
-    totalLevels === 0 ? 0 : Math.round((completedLevels / totalLevels) * 100);
-
-  return {
-    gameId: mod.gameId,
-    totalLevels,
-    completedLevels,
-    percent,
-    levels,
-  };
+  return buildGameProgress(mod.gameId, knownLevels, rows);
 }
 
 export type ProgressSummaryGame = {

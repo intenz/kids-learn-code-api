@@ -1,16 +1,19 @@
 const DEFAULT_ORIGIN = "http://localhost:5173";
 
-function parseAllowedOrigins(): string[] {
-  const raw = process.env.ALLOWED_ORIGIN ?? DEFAULT_ORIGIN;
-  return raw
+export function parseAllowedOrigins(
+  raw: string | undefined = process.env.ALLOWED_ORIGIN,
+): string[] {
+  const value = raw ?? DEFAULT_ORIGIN;
+  return value
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
 }
 
-const allowedOrigins = parseAllowedOrigins();
-
-function resolveAllowOrigin(requestOrigin: string | null): string {
+export function resolveAllowOrigin(
+  requestOrigin: string | null,
+  allowedOrigins: string[] = parseAllowedOrigins(),
+): string {
   if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     return requestOrigin;
   }
