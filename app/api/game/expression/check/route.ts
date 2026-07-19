@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     choiceId: string;
   };
 
-  const result = checkAnswer(levelId, choiceId);
+  const result = await checkAnswer(levelId, choiceId);
   if (!result) {
     return withCors(
       Response.json({ error: "Level not found" }, { status: 404 }),

@@ -5,6 +5,7 @@ export function OPTIONS(request: Request) {
   return optionsResponse(request);
 }
 
-export function GET(request: Request) {
-  return withCors(Response.json({ levels: getPublicLevels() }), request);
+export async function GET(request: Request) {
+  const levels = await getPublicLevels();
+  return withCors(Response.json({ levels }), request);
 }

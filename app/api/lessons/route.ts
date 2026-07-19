@@ -1,11 +1,11 @@
 import { optionsResponse, withCors } from "@/lib/cors";
-import { listCards } from "@/lib/cards";
+import { listLessons } from "@/lib/lessons";
 
 export function OPTIONS(request: Request) {
   return optionsResponse(request);
 }
 
 export async function GET(request: Request) {
-  const cards = await listCards();
-  return withCors(Response.json(cards), request);
+  const lessons = await listLessons();
+  return withCors(Response.json({ lessons }), request);
 }

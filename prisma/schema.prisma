@@ -1,0 +1,87 @@
+// Kids Learn Code — content + progress schema
+// Answers (correctChoiceId) stay server-side only.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum CardType {
+  lesson
+  game
+}
+
+model Card {
+  id        String   @id
+  title     String
+  type      CardType
+  sortOrder Int      @default(0)
+  href      String?
+  lessonId  String?
+  gameId    String?
+  lesson    Lesson?  @relation(fields: [lessonId], references: [id])
+  game      Game?    @relation(fields: [gameId], references: [id])
+}
+
+model Lesson {
+  id        String @id
+  title     String
+  summary   String
+  body      String
+  sortOrder Int    @default(0)
+  cards     Card[]
+}
+
+model Game {
+  id     String      @id
+  slug   String      @unique
+  title  String
+  cards  Card[]
+  levels GameLevel[]
+}
+
+model GameLevel {
+  id              String @id
+  gameId          String
+  title           String
+  sortOrder       Int    @default(0)
+  /// JSON string[] — code lines shown to the child
+  codeLines       String
+  /// JSON { id, label }[] — answer choices (no correctness flag)
+  choices         String
+  /// Server-only; never returned by public level endpoints
+  correctChoiceId String
+  game            Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, sortOrder])
+}
+
+/// Anonymous learner identity (frontend stores id in localStorage later)
+model Player {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  progress  Progress[]
+}
+
+model Progress {
+  id        String   @id @default(cuid())
+  playerId  String
+  /// "lesson" | "game_level"
+  itemType  String
+  /// lesson id or game level id
+  itemId    String
+  /// set when itemType is game_level
+  gameId    String?
+  completed Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, itemType, itemId])
+  @@index([playerId])
+}
