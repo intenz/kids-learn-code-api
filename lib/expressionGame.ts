@@ -80,7 +80,8 @@ export async function checkAnswer(
 
   const correct = level.correctChoiceId === choiceId;
   if (correct) {
-    const message = SUCCESS_MESSAGES[level.sortOrder % SUCCESS_MESSAGES.length];
+    const message =
+      SUCCESS_MESSAGES[(level.sortOrder - 1) % SUCCESS_MESSAGES.length];
     return { correct: true, message };
   }
 
