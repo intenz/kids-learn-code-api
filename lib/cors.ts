@@ -22,7 +22,7 @@ export function corsHeadersFor(request?: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": resolveAllowOrigin(requestOrigin),
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Player-Id",
     Vary: "Origin",
   };
 }

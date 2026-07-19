@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id        String     @id
+  createdAt DateTime   @default(now())
+  progress  Progress[]
+}
+
+model Progress {
+  id           String   @id @default(cuid())
+  playerId     String
+  player       Player   @relation(fields: [playerId], references: [id])
+  gameId       String
+  levelId      String
+  completed    Boolean  @default(false)
+  correctCount Int      @default(0)
+  wrongCount   Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([playerId, gameId, levelId])
+}
