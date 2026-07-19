@@ -1,17 +1,16 @@
+import { prisma } from "@/lib/prisma";
+
 export type Choice = {
   id: string;
   label: string;
 };
 
-export type ExpressionLevel = {
+export type PublicExpressionLevel = {
   id: string;
   title: string;
   codeLines: string[];
   choices: Choice[];
-  correctChoiceId: string;
 };
-
-export type PublicExpressionLevel = Omit<ExpressionLevel, "correctChoiceId">;
 
 export type CheckResult = {
   correct: boolean;
@@ -20,119 +19,44 @@ export type CheckResult = {
 
 const SUCCESS_MESSAGES = ["Супер!", "Молодець!"] as const;
 const FAIL_MESSAGE = "Спробуй ще";
+const EXPRESSION_MODULE_ID = "expression";
 
-const levels: ExpressionLevel[] = [
-  {
-    id: "expr-1",
-    title: "Додавання",
-    codeLines: ["let a = 3", "let b = 4", "let result = a + b"],
-    choices: [
-      { id: "a", label: "7" },
-      { id: "b", label: "12" },
-      { id: "c", label: "1" },
-      { id: "d", label: "34" },
-    ],
-    correctChoiceId: "a",
-  },
-  {
-    id: "expr-2",
-    title: "Множення",
-    codeLines: ["let a = 3", "let b = 4", "let result = a * b"],
-    choices: [
-      { id: "a", label: "7" },
-      { id: "b", label: "12" },
-      { id: "c", label: "34" },
-      { id: "d", label: "1" },
-    ],
-    correctChoiceId: "b",
-  },
-  {
-    id: "expr-3",
-    title: "Множення і додавання",
-    codeLines: ["let a = 3", "let b = 4", "let result = a * b + 2"],
-    choices: [
-      { id: "a", label: "14" },
-      { id: "b", label: "18" },
-      { id: "c", label: "20" },
-      { id: "d", label: "10" },
-    ],
-    correctChoiceId: "a",
-  },
-  {
-    id: "expr-4",
-    title: "Кілька змінних",
-    codeLines: [
-      "let a = 2",
-      "let b = 5",
-      "let c = 3",
-      "let result = a + b + c",
-    ],
-    choices: [
-      { id: "a", label: "8" },
-      { id: "b", label: "10" },
-      { id: "c", label: "15" },
-      { id: "d", label: "30" },
-    ],
-    correctChoiceId: "b",
-  },
-  {
-    id: "expr-5",
-    title: "Дужки",
-    codeLines: [
-      "let a = 2",
-      "let b = 3",
-      "let c = 4",
-      "let result = (a + b) * c",
-    ],
-    choices: [
-      { id: "a", label: "14" },
-      { id: "b", label: "20" },
-      { id: "c", label: "24" },
-      { id: "d", label: "9" },
-    ],
-    correctChoiceId: "b",
-  },
-  {
-    id: "expr-6",
-    title: "Складніший вираз",
-    codeLines: [
-      "let a = 5",
-      "let b = 2",
-      "let c = 3",
-      "let result = a * b + c * 2",
-    ],
-    choices: [
-      { id: "a", label: "16" },
-      { id: "b", label: "22" },
-      { id: "c", label: "13" },
-      { id: "d", label: "30" },
-    ],
-    correctChoiceId: "a",
-  },
-];
+function parseChoices(json: string): Choice[] {
+  return JSON.parse(json) as Choice[];
+}
 
-export function getPublicLevels(): PublicExpressionLevel[] {
-  return levels.map(({ id, title, codeLines, choices }) => ({
-    id,
-    title,
-    codeLines,
-    choices,
+function parseCodeLines(json: string): string[] {
+  return JSON.parse(json) as string[];
+}
+
+export async function getPublicLevels(): Promise<PublicExpressionLevel[]> {
+  const levels = await prisma.contentLevel.findMany({
+    where: { moduleId: EXPRESSION_MODULE_ID },
+    orderBy: { sortOrder: "asc" },
+  });
+
+  return levels.map((level) => ({
+    id: level.id,
+    title: level.title,
+    codeLines: parseCodeLines(level.codeLinesJson),
+    choices: parseChoices(level.choicesJson),
   }));
 }
 
-export function checkAnswer(
+export async function checkAnswer(
   levelId: string,
   choiceId: string,
-): CheckResult | null {
-  const level = levels.find((item) => item.id === levelId);
+): Promise<CheckResult | null> {
+  const level = await prisma.contentLevel.findFirst({
+    where: { id: levelId, moduleId: EXPRESSION_MODULE_ID },
+  });
   if (!level) {
     return null;
   }
 
   const correct = level.correctChoiceId === choiceId;
   if (correct) {
-    const index = levels.indexOf(level);
-    const message = SUCCESS_MESSAGES[index % SUCCESS_MESSAGES.length];
+    const message = SUCCESS_MESSAGES[level.sortOrder % SUCCESS_MESSAGES.length];
     return { correct: true, message };
   }
 
