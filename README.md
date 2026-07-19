@@ -40,6 +40,7 @@ Generated client lives under `node_modules/@prisma/client`. The DB file (`prisma
 | `npm run dev` | Dev server on port 3001 |
 | `npm run build` | Production build |
 | `npm start` | Start production server on 3001 |
+| `npm test` | Run unit tests (Vitest) |
 | `npx prisma db push` | Apply schema to SQLite (no migration history) |
 
 ## Endpoints

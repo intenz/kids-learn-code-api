@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
+import {
+  evaluateAnswer,
+  parseChoices,
+  parseCodeLines,
+  type CheckResult,
+  type Choice,
+} from "@/lib/quiz";
 
-export type Choice = {
-  id: string;
-  label: string;
-};
+export type { CheckResult, Choice };
 
 export type PublicExpressionLevel = {
   id: string;
@@ -12,22 +16,7 @@ export type PublicExpressionLevel = {
   choices: Choice[];
 };
 
-export type CheckResult = {
-  correct: boolean;
-  message: string;
-};
-
-const SUCCESS_MESSAGES = ["Супер!", "Молодець!"] as const;
-const FAIL_MESSAGE = "Спробуй ще";
 const EXPRESSION_MODULE_ID = "expression";
-
-function parseChoices(json: string): Choice[] {
-  return JSON.parse(json) as Choice[];
-}
-
-function parseCodeLines(json: string): string[] {
-  return JSON.parse(json) as string[];
-}
 
 export async function getPublicLevels(): Promise<PublicExpressionLevel[]> {
   const levels = await prisma.contentLevel.findMany({
@@ -54,11 +43,5 @@ export async function checkAnswer(
     return null;
   }
 
-  const correct = level.correctChoiceId === choiceId;
-  if (correct) {
-    const message = SUCCESS_MESSAGES[level.sortOrder % SUCCESS_MESSAGES.length];
-    return { correct: true, message };
-  }
-
-  return { correct: false, message: FAIL_MESSAGE };
+  return evaluateAnswer(level.correctChoiceId, choiceId, level.sortOrder);
 }

@@ -1,22 +1,19 @@
 import { prisma } from "@/lib/prisma";
+import {
+  isJsLessonModuleId,
+  JS_LESSON_MODULE_IDS,
+  type JsLessonModuleId,
+} from "@/lib/jsLessonModules";
+import {
+  evaluateAnswer,
+  parseChoices,
+  parseCodeLines,
+  type CheckResult,
+  type Choice,
+} from "@/lib/quiz";
 
-export type Choice = {
-  id: string;
-  label: string;
-};
-
-export type JsLessonModuleId = "basics" | "arrays" | "objects" | "functions";
-
-export const JS_LESSON_MODULE_IDS: readonly JsLessonModuleId[] = [
-  "basics",
-  "arrays",
-  "objects",
-  "functions",
-] as const;
-
-export function isJsLessonModuleId(value: string): value is JsLessonModuleId {
-  return (JS_LESSON_MODULE_IDS as readonly string[]).includes(value);
-}
+export type { CheckResult, Choice, JsLessonModuleId };
+export { isJsLessonModuleId, JS_LESSON_MODULE_IDS };
 
 export type JsLessonModuleMeta = {
   id: JsLessonModuleId;
@@ -34,22 +31,6 @@ export type PublicJsLessonLevel = {
   question?: string;
   choices: Choice[];
 };
-
-export type CheckResult = {
-  correct: boolean;
-  message: string;
-};
-
-const SUCCESS_MESSAGES = ["Супер!", "Молодець!"] as const;
-const FAIL_MESSAGE = "Спробуй ще";
-
-function parseChoices(json: string): Choice[] {
-  return JSON.parse(json) as Choice[];
-}
-
-function parseCodeLines(json: string): string[] {
-  return JSON.parse(json) as string[];
-}
 
 export async function getModules(): Promise<JsLessonModuleMeta[]> {
   const rows = await prisma.contentModule.findMany({
@@ -109,11 +90,5 @@ export async function checkAnswer(
     return null;
   }
 
-  const correct = level.correctChoiceId === choiceId;
-  if (correct) {
-    const message = SUCCESS_MESSAGES[level.sortOrder % SUCCESS_MESSAGES.length];
-    return { correct: true, message };
-  }
-
-  return { correct: false, message: FAIL_MESSAGE };
+  return evaluateAnswer(level.correctChoiceId, choiceId, level.sortOrder);
 }
